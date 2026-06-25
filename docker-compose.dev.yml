@@ -1,0 +1,91 @@
+name: portal-aluno-musica
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: portal_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-portal}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-portal_dev_pwd}
+      POSTGRES_DB: ${POSTGRES_DB:-portal_aluno}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-portal} -d ${POSTGRES_DB:-portal_aluno}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - portal_net
+
+  redis:
+    image: redis:7-alpine
+    container_name: portal_redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - portal_net
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: dev   # estágio com SDK + dotnet-ef (troque para 'runtime' em prod)
+    container_name: portal_api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__Postgres: "Host=postgres;Port=5432;Database=${POSTGRES_DB:-portal_aluno};Username=${POSTGRES_USER:-portal};Password=${POSTGRES_PASSWORD:-portal_dev_pwd}"
+      ConnectionStrings__Redis: "redis:6379"
+      Cache__DashboardTtlSeconds: "120"
+      Jwt__Key: ${JWT_KEY:-dev-only-change-me-portal-aluno-musica-super-secret-key-256bits}
+      Jwt__Issuer: portal-aluno
+      Jwt__Audience: portal-aluno-web
+      Admin__Name: ${ADMIN_NAME:-Professor}
+      Admin__Email: ${ADMIN_EMAIL:-admin@portal.dev}
+      Admin__Password: ${ADMIN_PASSWORD:-}
+    ports:
+      - "${API_PORT:-8080}:8080"
+    networks:
+      - portal_net
+
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8080}
+    container_name: portal_web
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "${WEB_PORT:-3000}:80"
+    networks:
+      - portal_net
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  portal_net:
+    driver: bridge

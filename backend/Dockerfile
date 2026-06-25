@@ -5,12 +5,13 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
 # Restore primeiro -> melhor cache de layers para dependências
-COPY PortalAluno.sln ./
 COPY src/PortalAluno.Domain/*.csproj          src/PortalAluno.Domain/
 COPY src/PortalAluno.Application/*.csproj      src/PortalAluno.Application/
 COPY src/PortalAluno.Infrastructure/*.csproj   src/PortalAluno.Infrastructure/
 COPY src/PortalAluno.API/*.csproj              src/PortalAluno.API/
-RUN dotnet restore PortalAluno.sln
+# Restaura só a API (e suas dependências) — evita exigir o projeto de testes,
+# que não é copiado para a imagem de produção.
+RUN dotnet restore src/PortalAluno.API/PortalAluno.API.csproj
 
 COPY . .
 RUN dotnet publish src/PortalAluno.API/PortalAluno.API.csproj \

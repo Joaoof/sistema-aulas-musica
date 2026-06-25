@@ -1,7 +1,9 @@
 # ──────────────────────────────────────────────────────────────
 # Portal do Aluno de Música — Developer Experience (DX) commands
 # ──────────────────────────────────────────────────────────────
-COMPOSE := docker compose
+# Local dev usa o compose de desenvolvimento (target dev: SDK + dotnet-ef).
+# Produção (Coolify) usa docker-compose.yml por padrão.
+COMPOSE := docker compose -f docker-compose.dev.yml
 API_SVC := api
 
 .DEFAULT_GOAL := help
