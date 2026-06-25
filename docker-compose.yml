@@ -98,9 +98,8 @@ services:
     restart: unless-stopped
     depends_on:
       - api
-    environment:
-      # Coolify gera/injeta o domínio público para o serviço `web` na porta 80
-      - SERVICE_FQDN_WEB_80
+    # Serviço público. No Coolify, defina o domínio para o serviço `web`
+    # apontando para a porta 80 (Coolify detecta a porta exposta abaixo).
     expose:
       - "80"
     healthcheck:
