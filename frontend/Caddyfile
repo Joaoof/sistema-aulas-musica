@@ -1,0 +1,27 @@
+# ─────────────────────────────────────────────────────────────
+# Caddy — serve o SPA (React/Vite/PWA) e faz proxy de /api.
+# Escuta em :80; o TLS é terminado pelo proxy de borda do Coolify.
+# ─────────────────────────────────────────────────────────────
+:80 {
+	encode gzip zstd
+	root * /usr/share/caddy
+
+	# Assets com hash (Vite) → cache longo e imutável
+	@assets path /assets/*
+	header @assets Cache-Control "public, max-age=31536000, immutable"
+
+	# PWA: service worker e manifest nunca cacheados (garante updates)
+	@nocache path /sw.js /manifest.webmanifest
+	header @nocache Cache-Control "no-cache"
+
+	# API na mesma origem → container interno `api` (preserva o prefixo /api)
+	handle /api/* {
+		reverse_proxy api:8080
+	}
+
+	# SPA: arquivos estáticos com fallback para index.html
+	handle {
+		try_files {path} /index.html
+		file_server
+	}
+}

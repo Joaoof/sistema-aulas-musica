@@ -4,18 +4,18 @@ name: portal-aluno-musica
 # Compose de PRODUÇÃO — pronto para Coolify (GitHub público + Docker)
 #
 # Arquitetura:
-#   web (nginx)  → único serviço PÚBLICO. Serve o SPA e faz proxy de /api
+#   web (Caddy)  → único serviço PÚBLICO. Serve o SPA e faz proxy de /api
 #   api (.NET)   → interno. Roda migrations + seed no startup automaticamente
 #   postgres     → interno. Dados persistidos em volume
 #   redis        → interno. Cache do dashboard
 #
-# Como o nginx faz proxy de /api → api:8080, o front usa caminhos RELATIVOS
+# Como o Caddy faz proxy de /api → api:8080, o front usa caminhos RELATIVOS
 # (VITE_API_URL=""), então NÃO há CORS nem domínio acoplado no build.
 #
 # No Coolify (este é o docker-compose.yml padrão — usado automaticamente):
 #   1. New Resource → Docker Compose → aponte para este repo
 #   2. Em Environment Variables, defina os segredos abaixo (os com :? são obrigatórios)
-#   3. O domínio público é gerado automaticamente para o serviço `web` (porta 80)
+#   3. No serviço `web`, defina o domínio (ex: https://joaoof.com.br) na porta 80
 #
 # Dev local: use `make up` (usa docker-compose.dev.yml).
 # ─────────────────────────────────────────────────────────────
@@ -75,7 +75,7 @@ services:
       Admin__Name: ${ADMIN_NAME:-Professor}
       Admin__Email: ${ADMIN_EMAIL:-admin@portal.dev}
       Admin__Password: ${ADMIN_PASSWORD:?defina ADMIN_PASSWORD}
-      # SPA acessa a API na mesma origem (nginx faz proxy). Este origin cobre
+      # SPA acessa a API na mesma origem (Caddy faz proxy). Este origin cobre
       # eventual acesso direto à API; ajuste para o domínio público se precisar.
       Cors__Origins__0: ${WEB_PUBLIC_URL:-http://localhost}
     expose:
@@ -94,7 +94,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        VITE_API_URL: ""       # vazio => SPA usa /api (mesma origem, via proxy nginx)
+        VITE_API_URL: ""       # vazio => SPA usa /api (mesma origem, via proxy Caddy)
     restart: unless-stopped
     depends_on:
       - api

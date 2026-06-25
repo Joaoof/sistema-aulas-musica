@@ -14,10 +14,10 @@ COPY . .
 RUN npm run build
 
 # ─────────────────────────────────────────────
-# Stage 2: Nginx servindo os estáticos (SPA + PWA)
+# Stage 2: Caddy servindo os estáticos (SPA + PWA) + proxy de /api
 # ─────────────────────────────────────────────
-FROM nginx:1.27-alpine AS runtime
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-COPY --from=build /app/dist /usr/share/nginx/html
+FROM caddy:2-alpine AS runtime
+COPY Caddyfile /etc/caddy/Caddyfile
+COPY --from=build /app/dist /usr/share/caddy
 EXPOSE 80
-CMD ["nginx", "-g", "daemon off;"]
+# A imagem oficial já roda: caddy run --config /etc/caddy/Caddyfile --adapter caddyfile
