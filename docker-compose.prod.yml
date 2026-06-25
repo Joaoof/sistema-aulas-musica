@@ -1,0 +1,119 @@
+name: portal-aluno-musica
+
+# ─────────────────────────────────────────────────────────────
+# Compose de PRODUÇÃO — pronto para Coolify (GitHub público + Docker)
+#
+# Arquitetura:
+#   web (nginx)  → único serviço PÚBLICO. Serve o SPA e faz proxy de /api
+#   api (.NET)   → interno. Roda migrations + seed no startup automaticamente
+#   postgres     → interno. Dados persistidos em volume
+#   redis        → interno. Cache do dashboard
+#
+# Como o nginx faz proxy de /api → api:8080, o front usa caminhos RELATIVOS
+# (VITE_API_URL=""), então NÃO há CORS nem domínio acoplado no build.
+#
+# No Coolify:
+#   1. New Resource → Docker Compose → aponte para este repo
+#   2. "Docker Compose Location" = /docker-compose.prod.yml
+#   3. Em Environment Variables, defina os segredos abaixo (os com :? são obrigatórios)
+#   4. O domínio público é gerado automaticamente para o serviço `web` (porta 80)
+# ─────────────────────────────────────────────────────────────
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-portal}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-portal_aluno}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-portal} -d ${POSTGRES_DB:-portal_aluno}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - portal_net
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - portal_net
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: runtime          # imagem enxuta de produção (ASP.NET runtime)
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__Postgres: "Host=postgres;Port=5432;Database=${POSTGRES_DB:-portal_aluno};Username=${POSTGRES_USER:-portal};Password=${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD}"
+      ConnectionStrings__Redis: "redis:6379"
+      Cache__DashboardTtlSeconds: "120"
+      Jwt__Key: ${JWT_KEY:?defina JWT_KEY (>= 32 caracteres)}
+      Jwt__Issuer: portal-aluno
+      Jwt__Audience: portal-aluno-web
+      Admin__Name: ${ADMIN_NAME:-Professor}
+      Admin__Email: ${ADMIN_EMAIL:-admin@portal.dev}
+      Admin__Password: ${ADMIN_PASSWORD:?defina ADMIN_PASSWORD}
+      # SPA acessa a API na mesma origem (nginx faz proxy). Este origin cobre
+      # eventual acesso direto à API; ajuste para o domínio público se precisar.
+      Cors__Origins__0: ${WEB_PUBLIC_URL:-http://localhost}
+    expose:
+      - "8080"                 # interno apenas — NÃO publicado no host
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    networks:
+      - portal_net
+
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ""       # vazio => SPA usa /api (mesma origem, via proxy nginx)
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      # Coolify gera/injeta o domínio público para o serviço `web` na porta 80
+      - SERVICE_FQDN_WEB_80
+    expose:
+      - "80"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:80/"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks:
+      - portal_net
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  portal_net:
+    driver: bridge

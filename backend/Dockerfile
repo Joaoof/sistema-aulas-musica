@@ -23,6 +23,10 @@ RUN dotnet publish src/PortalAluno.API/PortalAluno.API.csproj \
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
 ENV ASPNETCORE_URLS=http://+:8080
+# curl: usado pelo healthcheck do compose (GET /health)
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
 COPY --from=build /app/publish ./
 EXPOSE 8080
 ENTRYPOINT ["dotnet", "PortalAluno.API.dll"]
