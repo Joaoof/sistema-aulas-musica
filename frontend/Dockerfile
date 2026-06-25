@@ -8,8 +8,12 @@ WORKDIR /app
 ARG VITE_API_URL=http://localhost:8080
 ENV VITE_API_URL=$VITE_API_URL
 
+# Heap explícito: em servidores com pouca RAM o Node 22 auto-reduz o heap e
+# o `vite build` (6.9k módulos) pode estourar. Fixar evita "heap out of memory".
+ENV NODE_OPTIONS=--max-old-space-size=2048
+
 COPY package*.json ./
-RUN npm install
+RUN npm install --no-audit --no-fund
 COPY . .
 RUN npm run build
 
