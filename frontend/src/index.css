@@ -1,0 +1,45 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Shadcn/ui — tema Zinc, dark permanente ───────────────── */
+@layer base {
+  :root,
+  .dark {
+    --background: 240 10% 3.9%; /* zinc-950 */
+    --foreground: 0 0% 98%;
+    --card: 240 6% 10%; /* ~zinc-900 */
+    --card-foreground: 0 0% 98%;
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 240 5.9% 10%;
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 3.7% 15.9%; /* zinc-800 */
+    --input: 240 3.7% 15.9%;
+    --ring: 35 92% 50%; /* amber-500 — foco Pro Audio */
+    --radius: 0.625rem;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    /* leve "grain"/profundidade de painel de hardware */
+    background-image: radial-gradient(
+      120% 120% at 50% -10%,
+      rgba(245, 158, 11, 0.06),
+      transparent 45%
+    );
+    min-height: 100dvh;
+  }
+}
